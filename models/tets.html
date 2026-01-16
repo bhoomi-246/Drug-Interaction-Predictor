@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Hogwarts Healer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Spectral&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:'Spectral',serif;
+  background:black;
+  color:#f5e6c8;
+  overflow:hidden;
+  cursor:none;
+}
+canvas#bg{position:fixed;inset:0;z-index:-5}
+
+/* ---------- LANDING ---------- */
+#landing{
+  position:fixed;inset:0;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  background:
+    radial-gradient(circle at top, rgba(255,215,0,0.15), transparent 40%),
+    linear-gradient(#1a1a40,#000);
+  z-index:10;
+}
+#title{
+  font-family:'Cinzel',serif;
+  font-size:clamp(3rem,8vw,7rem);
+  letter-spacing:6px;
+  text-shadow:0 0 40px gold,0 0 80px #7f5af0;
+}
+#proceed{
+  margin-top:50px;
+  padding:18px 55px;
+  font-size:1.3rem;
+  font-family:'Cinzel',serif;
+  border:none;
+  border-radius:40px;
+  cursor:pointer;
+  background:linear-gradient(135deg,gold,#7f5af0);
+  box-shadow:0 0 40px gold;
+  transition:.4s;
+}
+#proceed:hover{transform:scale(1.1)}
+
+/* ---------- CHAT PAGE ---------- */
+#chatPage{
+  position:fixed;inset:0;
+  display:none;
+  overflow:hidden;
+}
+#chatPage::before{
+  content:var(--house-logo,"🦁");
+  position:absolute;
+  inset:0;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  font-size:40vw;
+  opacity:0.05;
+  pointer-events:none;
+}
+
+/* ---------- HOUSES ---------- */
+#houses{
+  display:flex;
+  justify-content:space-evenly;
+  padding:20px;
+  font-family:'Cinzel',serif;
+  z-index:5;
+}
+.house{
+  padding:14px 30px;
+  border-radius:30px;
+  background:rgba(255,255,255,0.12);
+  cursor:pointer;
+  transition:0.3s;
+}
+.house:hover{transform:translateY(-6px) scale(1.1)}
+
+/* ---------- CHAT ---------- */
+#chatContainer{
+  position:absolute;
+  bottom:20px;
+  left:50%;
+  transform:translateX(-50%);
+  width:90%;
+  max-width:650px;
+  background:rgba(0,0,0,0.45);
+  /* backdrop-filter:blur(12px); */
+  border-radius:25px;
+  padding:20px;
+  z-index:5;
+}
+#messages{height:260px;overflow-y:auto}
+.msg{margin:10px 0;padding:12px 18px;border-radius:18px}
+.user{background:#7f5af0;color:black}
+.bot{background:#f5e6c8;color:black}
+#inputArea{display:flex;gap:10px;margin-top:10px}
+input{flex:1;padding:10px;border-radius:20px;border:none}
+.send{padding:10px 25px;border-radius:20px;background:gold;border:none}
+
+/* ---------- MAGIC ELEMENTS ---------- */
+.letter,.owl,.spark,.dementor{
+  position:fixed;
+  pointer-events:none;
+  z-index:1;
+}
+.letter{font-size:3rem;animation:floatSlow 16s linear}
+.owl{font-size:4rem;animation:floatWave 22s linear}
+.spark{
+  width:4px;height:4px;
+  border-radius:50%;
+  background:currentColor;
+  box-shadow:0 0 12px currentColor;
+  animation:sparkFloat 6s linear;
+}
+.dementor{font-size:4rem;opacity:.18;animation:dementorFloat 20s linear}
+
+/* ---------- CURSOR SPARK ---------- */
+.cursor-spark{
+  position:fixed;
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  pointer-events:none;
+  background:currentColor;
+  box-shadow:0 0 12px currentColor,0 0 25px currentColor;
+  animation:cursorFade .8s linear forwards;
+  z-index:9999;
+}
+
+@keyframes cursorFade{
+  from{transform:scale(1);opacity:1}
+  to{transform:scale(0) translateY(-15px);opacity:0}
+}
+
+/* ---------- ANIMATIONS ---------- */
+@keyframes floatSlow{from{transform:translate(-20vw,10vh)}to{transform:translate(120vw,-20vh)}}
+@keyframes floatWave{from{transform:translate(-20vw)}to{transform:translate(120vw,-10vh)}}
+@keyframes sparkFloat{from{transform:translateY(100vh)}to{transform:translateY(-20vh)}}
+@keyframes dementorFloat{from{transform:translateY(120vh)}to{transform:translateY(-30vh)}}
+</style>
+</head>
+
+<body>
+
+<canvas id="bg"></canvas>
+
+<div id="landing">
+  <div id="title">HOGWARTS HEALER</div>
+  <button id="proceed">Proceed ✨</button>
+</div>
+
+<div id="chatPage">
+  <div id="houses">
+    <div class="house" data-house="gryffindor">🦁 Gryffindor</div>
+    <div class="house" data-house="slytherin">🐍 Slytherin</div>
+    <div class="house" data-house="ravenclaw">🦅 Ravenclaw</div>
+    <div class="house" data-house="hufflepuff">🦡 Hufflepuff</div>
+  </div>
+
+  <div id="chatContainer">
+    <div id="messages"></div>
+    <div id="inputArea">
+      <input id="userInput" placeholder="Speak your heart, young wizard…" />
+      <button class="send">Cast Spell</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* PAGE SWITCH */
+proceed.onclick=()=>{
+  landing.style.display='none';
+  chatPage.style.display='block';
+};
+
+/* HOUSE DATA */
+const houseData={
+  gryffindor:{bg:'linear-gradient(#7a0c0c,#1a0000)',logo:'🦁',color:'gold'},
+  slytherin:{bg:'linear-gradient(#0b3d2e,#001a12)',logo:'🐍',color:'#00ff99'},
+  ravenclaw:{bg:'linear-gradient(#0b1c3d,#000814)',logo:'🦅',color:'#66aaff'},
+  hufflepuff:{bg:'linear-gradient(#6b5200,#1a1400)',logo:'🦡',color:'#ffdd55'}
+};
+
+let magicTimers=[];
+let cursorColor='gold';
+
+/* CLEAR MAGIC */
+function clearMagic(){
+  magicTimers.forEach(t=>clearInterval(t));
+  magicTimers=[];
+}
+
+/* SPAWN */
+function spawn(cls,emoji,life,color){
+  const e=document.createElement('div');
+  e.className=cls;
+  e.innerText=emoji;
+  e.style.left=Math.random()*100+'vw';
+  e.style.top=Math.random()*100+'vh';
+  if(color) e.style.color=color;
+  document.body.appendChild(e);
+  setTimeout(()=>e.remove(),life);
+}
+
+/* START MAGIC */
+function startMagic(color){
+  clearMagic();
+  magicTimers.push(setInterval(()=>spawn('spark','',6000,color),120));
+  magicTimers.push(setInterval(()=>spawn('spark','',6000,color),200));
+  magicTimers.push(setInterval(()=>spawn('letter','📜',16000),6000));
+  magicTimers.push(setInterval(()=>spawn('owl','🦉',22000),12000));
+  magicTimers.push(setInterval(()=>spawn('dementor','👻',20000),15000));
+}
+
+/* HOUSE CLICK */
+document.querySelectorAll('.house').forEach(h=>{
+  h.onclick=()=>{
+    const d=houseData[h.dataset.house];
+    chatPage.style.background=d.bg;
+    chatPage.style.setProperty('--house-logo','"'+d.logo+'"');
+    cursorColor=d.color;
+    startMagic(d.color);
+  };
+});
+
+/* CHAT */
+document.querySelector('.send').onclick=()=>{
+  if(!userInput.value)return;
+  messages.innerHTML+=`<div class="msg user">${userInput.value}</div>`;
+  setTimeout(()=>messages.innerHTML+=`<div class="msg bot">You are safe here. Healing takes time.</div>`,600);
+  userInput.value='';
+};
+
+/* CURSOR SPARK */
+document.addEventListener('mousemove',e=>{
+  const s=document.createElement('div');
+  s.className='cursor-spark';
+  s.style.left=e.clientX+'px';
+  s.style.top=e.clientY+'px';
+  s.style.color=cursorColor;
+  document.body.appendChild(s);
+  setTimeout(()=>s.remove(),800);
+});
+
+/* THREE.JS STARS */
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,.1,1000);
+const renderer=new THREE.WebGLRenderer({canvas:bg,alpha:true});
+renderer.setSize(innerWidth,innerHeight);
+camera.position.z=5;
+const g=new THREE.SphereGeometry(.05,16,16);
+const m=new THREE.MeshBasicMaterial({color:0xffd700});
+for(let i=0;i<400;i++){
+  const s=new THREE.Mesh(g,m);
+  s.position.set((Math.random()-.5)*20,(Math.random()-.5)*20,(Math.random()-.5)*20);
+  scene.add(s);
+}
+(function animate(){
+  requestAnimationFrame(animate);
+  renderer.render(scene,camera);
+})();
+</script>
+
+</body>
+</html>

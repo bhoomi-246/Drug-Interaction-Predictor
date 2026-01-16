@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>DDI Predictor — Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes gradient {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
+      50% { box-shadow: 0 0 40px rgba(59, 130, 246, 0.6); }
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .gradient-bg {
+      background: linear-gradient(-45deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
+      background-size: 400% 400%;
+      animation: gradient 15s ease infinite;
+    }
+    .glass {
+      background: rgba(255, 255, 255, 0.95);
+      /* backdrop-filter: blur(10px); */
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .prob-bar {
+      height: 10px;
+      border-radius: 8px;
+      background: linear-gradient(90deg, #667eea, #764ba2);
+      transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+    }
+
+    .slide-in {
+      animation: slideIn 0.5s ease-out;
+    }
+
+    .drug-input {
+      transition: all 0.3s ease;
+    }
+
+    .drug-input:focus {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+    }
+
+    .predict-btn {
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .predict-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
+    }
+
+    .predict-btn::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.3);
+      transform: translate(-50%, -50%);
+      transition: width 0.6s, height 0.6s;
+    }
+
+    .predict-btn:active::before {
+      width: 300px;
+      height: 300px;
+    }
+
+    .severity-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .severity-high {
+      background: linear-gradient(135deg, #ff6b6b, #ee5a6f);
+      color: white;
+    }
+
+    .severity-medium {
+      background: linear-gradient(135deg, #ffd93d, #f39c12);
+      color: #333;
+    }
+
+    .severity-low {
+      background: linear-gradient(135deg, #6bcf7f, #51cf66);
+      color: white;
+    }
+
+    .history-card {
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+
+    .history-card:hover {
+      transform: translateX(8px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .floating {
+      animation: floating 3s ease-in-out infinite;
+    }
+
+    @keyframes floating {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+    }
+
+    .molecule-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+  </style>
+</head>
+
+<body class="gradient-bg min-h-screen p-6">
+  <div class="max-w-4xl mx-auto">
+    <!-- HEADER -->
+    <div class="text-center mb-8 slide-in">
+      <div class="flex justify-center mb-4">
+        <div class="molecule-icon floating" style="background: linear-gradient(135deg, #667eea, #764ba2);">
+          💊
+        </div>
+      </div>
+      <h1 class="text-5xl font-bold text-white mb-2" style="text-shadow: 2px 2px 10px rgba(0,0,0,0.2);">
+        Drug Interaction Predictor
+      </h1>
+      <p class="text-white text-lg opacity-90">AI-powered DDI analysis with real-time predictions</p>
+    </div>
+
+    <!-- MAIN CARD -->
+    <div class="glass rounded-3xl shadow-2xl p-8 mb-6 slide-in">
+      <form id="predictForm" class="space-y-4">
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="relative">
+            <label class="block text-sm font-medium text-gray-700 mb-2">First Drug</label>
+            <div class="relative">
+              <span class="absolute left-4 top-1/2 transform -translate-y-1/2 text-2xl">💊</span>
+              <input id="drug1" required 
+                     class="drug-input w-full pl-14 pr-4 py-4 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none text-lg" 
+                     placeholder="e.g., Bivalirudin" />
+            </div>
+          </div>
+
+          <div class="relative">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Second Drug</label>
+            <div class="relative">
+              <span class="absolute left-4 top-1/2 transform -translate-y-1/2 text-2xl">💉</span>
+              <input id="drug2" required 
+                     class="drug-input w-full pl-14 pr-4 py-4 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none text-lg" 
+                     placeholder="e.g., Apixaban" />
+            </div>
+          </div>
+        </div>
+
+        <div class="flex gap-3 pt-2">
+          <button id="predictBtn" type="submit" 
+                  class="predict-btn flex-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white py-4 rounded-xl font-semibold text-lg shadow-lg">
+            🔍 Analyze Interaction
+          </button>
+          <button id="clearBtn" type="button" 
+                  class="bg-gray-100 text-gray-700 px-6 rounded-xl hover:bg-gray-200 transition-all font-semibold">
+            Clear
+          </button>
+        </div>
+      </form>
+
+      <!-- SETTINGS -->
+      <details class="mt-6">
+        <summary class="cursor-pointer text-sm text-gray-600 hover:text-gray-800 font-medium">⚙️ Advanced Settings</summary>
+        <div class="mt-3 p-4 bg-gray-50 rounded-xl">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Backend API URL</label>
+          <input id="backendUrl" 
+                 class="w-full p-3 border border-gray-300 rounded-lg text-sm font-mono" 
+                 value="http://localhost:5000/api/predict" />
+        </div>
+      </details>
+
+      <!-- RESULT CARD -->
+      <div id="resultCard" class="mt-8 hidden slide-in">
+        <div class="bg-gradient-to-br from-purple-50 to-blue-50 rounded-2xl p-6 border-2 border-purple-200">
+          <div class="flex justify-between items-start mb-6">
+            <div>
+              <div class="text-sm text-gray-500 uppercase tracking-wide mb-1">Analysis Result</div>
+              <div id="pairText" class="font-bold text-2xl text-gray-800"></div>
+            </div>
+            <div class="text-right">
+              <div class="text-xs text-gray-500">Analyzed</div>
+              <div id="queriedAt" class="text-sm font-medium text-gray-700"></div>
+            </div>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-6">
+            <!-- INTERACTION -->
+            <div class="bg-white rounded-xl p-5 shadow-sm">
+              <div class="flex items-center gap-2 mb-3">
+                <span class="text-2xl">⚡</span>
+                <div class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Interaction Type</div>
+              </div>
+              <div id="interactionLabel" class="text-2xl font-bold text-gray-800 mb-4"></div>
+              <div id="interactionClasses" class="space-y-3"></div>
+            </div>
+
+            <!-- SEVERITY -->
+            <div class="bg-white rounded-xl p-5 shadow-sm">
+              <div class="flex items-center gap-2 mb-3">
+                <span class="text-2xl">⚠️</span>
+                <div class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Severity Level</div>
+              </div>
+              <div class="mb-4">
+                <div id="severityLabel" class="text-2xl font-bold text-gray-800 inline-block"></div>
+                <span id="severityBadge" class="ml-3"></span>
+              </div>
+              <div id="severityClasses" class="space-y-3"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="errorBox" class="mt-4 hidden bg-red-50 border-2 border-red-200 rounded-xl p-4 text-red-700"></div>
+    </div>
+
+    <!-- HISTORY -->
+    <div class="glass rounded-3xl shadow-xl p-6 slide-in">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-3">
+          <span class="text-2xl">📋</span>
+          <h2 class="text-xl font-bold text-gray-800">Query History</h2>
+        </div>
+        <button id="downloadHistory" 
+                class="text-sm text-purple-600 hover:text-purple-800 font-semibold hover:underline transition-all">
+          📥 Download CSV
+        </button>
+      </div>
+      <div id="historyList" class="space-y-2"></div>
+      <div id="emptyHistory" class="text-center py-8 text-gray-400">
+        <div class="text-4xl mb-2">🔬</div>
+        <p>No queries yet. Start analyzing drug interactions!</p>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const form = document.getElementById('predictForm');
+  const drug1El = document.getElementById('drug1');
+  const drug2El = document.getElementById('drug2');
+  const backendUrlEl = document.getElementById('backendUrl');
+  const predictBtn = document.getElementById('predictBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const resultCard = document.getElementById('resultCard');
+  const pairText = document.getElementById('pairText');
+  const queriedAt = document.getElementById('queriedAt');
+  const interactionLabel = document.getElementById('interactionLabel');
+  const interactionClasses = document.getElementById('interactionClasses');
+  const severityLabel = document.getElementById('severityLabel');
+  const severityBadge = document.getElementById('severityBadge');
+  const severityClasses = document.getElementById('severityClasses');
+  const historyList = document.getElementById('historyList');
+  const emptyHistory = document.getElementById('emptyHistory');
+  const errorBox = document.getElementById('errorBox');
+
+  let history = [];
+
+  function nowStr() {
+    return new Date().toLocaleString();
+  }
+
+  function clearResult() {
+    resultCard.classList.add('hidden');
+    interactionClasses.innerHTML = '';
+    severityClasses.innerHTML = '';
+    errorBox.classList.add('hidden');
+  }
+
+  function getSeverityClass(label) {
+    const lower = label.toLowerCase();
+    if (lower.includes('major') || lower.includes('high')) return 'severity-high';
+    if (lower.includes('moderate') || lower.includes('medium')) return 'severity-medium';
+    return 'severity-low';
+  }
+
+  function renderProbRows(container, classes, scores, limit = 2) {
+    container.innerHTML = "";
+    const items = classes.map((c, i) => ({c, score: scores[i] || 0}));
+    items.sort((a, b) => b.score - a.score);
+    const topItems = items.slice(0, limit);
+
+    topItems.forEach((it, idx) => {
+      const div = document.createElement("div");
+      div.className = "space-y-2";
+      div.style.animationDelay = `${idx * 0.1}s`;
+      div.innerHTML = `
+        <div class="flex justify-between items-center">
+          <div class="text-sm font-medium text-gray-700">${it.c}</div>
+          <div class="text-sm font-bold text-purple-600">${(it.score * 100).toFixed(1)}%</div>
+        </div>
+        <div class="bg-gray-200 rounded-full overflow-hidden h-2">
+          <div class="prob-bar" style="width:0%;" data-width="${(it.score * 100).toFixed(1)}"></div>
+        </div>
+      `;
+      container.appendChild(div);
+      
+      // Animate bar
+      setTimeout(() => {
+        const bar = div.querySelector('.prob-bar');
+        bar.style.width = bar.dataset.width + '%';
+      }, 50);
+    });
+  }
+
+  function showError(msg) {
+    errorBox.classList.remove('hidden');
+    errorBox.innerHTML = `<strong>Error:</strong> ${msg}`;
+  }
+
+  function toggleBusy(isBusy) {
+    predictBtn.disabled = isBusy;
+    predictBtn.innerHTML = isBusy ? '⏳ Analyzing...' : '🔍 Analyze Interaction';
+  }
+
+  function addToHistory(drug1, drug2, interaction, severity) {
+    history.unshift({drug1, drug2, interaction, severity, time: nowStr()});
+    if (history.length > 10) history.pop();
+    renderHistory();
+  }
+
+  function renderHistory() {
+    if (history.length === 0) {
+      emptyHistory.classList.remove('hidden');
+      historyList.innerHTML = '';
+      return;
+    }
+    
+    emptyHistory.classList.add('hidden');
+    historyList.innerHTML = history.map((h, i) => `
+      <div class="history-card bg-white rounded-xl p-4 border border-gray-200 hover:border-purple-300" 
+           onclick="loadFromHistory(${i})">
+        <div class="flex justify-between items-start">
+          <div>
+            <div class="font-semibold text-gray-800">${h.drug1} + ${h.drug2}</div>
+            <div class="text-sm text-gray-500 mt-1">
+              <span class="inline-block mr-3">⚡ ${h.interaction}</span>
+              <span class="inline-block">⚠️ ${h.severity}</span>
+            </div>
+          </div>
+          <div class="text-xs text-gray-400">${h.time}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  window.loadFromHistory = function(index) {
+    const h = history[index];
+    drug1El.value = h.drug1;
+    drug2El.value = h.drug2;
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  };
+
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    clearResult();
+
+    const d1 = drug1El.value.trim();
+    const d2 = drug2El.value.trim();
+    const backend = backendUrlEl.value.trim();
+
+    if (!d1 || !d2) {
+      return showError("Please enter both drug names.");
+    }
+
+    toggleBusy(true);
+
+    try {
+      const res = await fetch(backend, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({drug1: d1, drug2: d2})
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        showError(data.error || "Server error occurred");
+        toggleBusy(false);
+        return;
+      }
+
+      pairText.textContent = `${d1} + ${d2}`;
+      queriedAt.textContent = nowStr();
+
+      interactionLabel.textContent = data.interaction.label;
+      renderProbRows(interactionClasses, data.interaction.classes, data.interaction.scores, 2);
+
+      severityLabel.textContent = data.severity.label;
+      const sevClass = getSeverityClass(data.severity.label);
+      severityBadge.innerHTML = `<span class="severity-badge ${sevClass}">${data.severity.label}</span>`;
+      renderProbRows(severityClasses, data.severity.classes, data.severity.scores, 2);
+
+      resultCard.classList.remove("hidden");
+      
+      addToHistory(d1, d2, data.interaction.label, data.severity.label);
+
+    } catch (e) {
+      showError("Network error: " + e.message);
+    }
+
+    toggleBusy(false);
+  });
+
+  clearBtn.addEventListener('click', () => {
+    drug1El.value = "";
+    drug2El.value = "";
+    clearResult();
+  });
+
+  document.getElementById('downloadHistory').addEventListener('click', () => {
+    if (history.length === 0) {
+      alert('No history to download!');
+      return;
+    }
+    
+    let csv = 'Drug 1,Drug 2,Interaction,Severity,Time\n';
+    history.forEach(h => {
+      csv += `"${h.drug1}","${h.drug2}","${h.interaction}","${h.severity}","${h.time}"\n`;
+    });
+    
+    const blob = new Blob([csv], {type: 'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'ddi-history.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  drug1El.value = "Bivalirudin";
+  drug2El.value = "Apixaban";
+  renderHistory();
+</script>
+
+</body>
+</html>
